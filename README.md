@@ -156,13 +156,110 @@ npm start
 
 ## 账户导入格式
 
-支持文本批量导入，每行一个账户，字段用分隔符分隔：
+支持文本批量导入或文件导入，每行一个账户，字段用分隔符分隔。
+
+系统实际必填字段是：
+
+- `email`
+- `client_id`
+- `refresh_token`
+
+`password` 为可选字段，仅用于本地备注/展示，不参与 OAuth 收信。
+
+默认导入格式：
 
 ```
-邮箱----密码----客户端ID----刷新令牌
+a@outlook.com----密码可留空----client-id-1----refresh-token-1
+b@outlook.com----密码可留空----client-id-2----refresh-token-2
 ```
 
 分隔符可自定义（默认 `----`）。
+
+如果你的原始数据是三列，例如：
+
+```txt
+a@outlook.com|client-id-1|refresh-token-1
+b@outlook.com|client-id-2|refresh-token-2
+```
+
+导入时这样设置即可：
+
+- 分隔符：`|`
+- 字段顺序：`email`, `client_id`, `refresh_token`
+
+导入预览会按 `email` 检查重复项，并允许你选择“跳过重复项”或“覆盖更新”。
+
+## 如何获取 `client_id` 和 `refresh_token`
+
+### 先确认适用账号类型
+
+当前项目后端固定使用 `https://login.microsoftonline.com/consumers/...` 端点，因此开箱即用的目标是**个人微软账号**，例如 `outlook.com`、`hotmail.com`、`live.com`。如果你要接企业/学校账号，需要先调整后端 OAuth 端点和权限配置。
+
+### `client_id` 是什么
+
+`client_id` 就是你在 Microsoft Entra 应用注册里拿到的 **Application (client) ID**。
+
+获取步骤：
+
+1. 打开 Microsoft Entra 管理中心
+2. 进入 `App registrations` → `New registration`
+3. `Supported account types` 选择：
+   - `Personal Microsoft accounts`
+   - 或 `Accounts in any organizational directory and personal Microsoft accounts`
+4. 注册完成后，在应用概览页复制 `Application (client) ID`
+
+### `refresh_token` 是什么
+
+`refresh_token` 不是在后台面板里直接复制出来的，而是要让目标邮箱账号完成一次 OAuth 授权后，由微软令牌接口返回。
+
+这个项目本身目前**只消费** `refresh_token`，不内置“申请 refresh_token”的向导页面。最简单的获取方式是给你自己的 Entra 应用跑一次 **Device Code Flow** 或 **Authorization Code Flow**。对命令行用户，推荐 Device Code Flow。
+
+### 推荐做法：Device Code Flow
+
+先完成应用注册附加配置：
+
+1. 在应用的 `Authentication` 页面启用 `Allow public client flows`
+2. 在 `API permissions` 中至少添加 Microsoft Graph 的委托权限 `Mail.Read`
+3. 申请令牌时使用这些 scope：
+
+```txt
+offline_access https://graph.microsoft.com/Mail.Read https://outlook.office.com/IMAP.AccessAsUser.All
+```
+
+然后请求设备码：
+
+```bash
+curl -X POST 'https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'client_id=你的_client_id' \
+  --data-urlencode 'scope=offline_access https://graph.microsoft.com/Mail.Read https://outlook.office.com/IMAP.AccessAsUser.All'
+```
+
+返回结果里会有：
+
+- `user_code`
+- `verification_uri`
+- `device_code`
+
+按提示在浏览器打开 `verification_uri`，输入 `user_code`，登录目标 Outlook 账号并同意授权。之后轮询令牌接口：
+
+```bash
+curl -X POST 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:device_code' \
+  --data-urlencode 'client_id=你的_client_id' \
+  --data-urlencode 'device_code=上一步返回的_device_code'
+```
+
+授权完成后，返回 JSON 中的 `refresh_token` 就是你要导入的值。
+
+### 补充说明
+
+- Graph 读取邮件用到 `Mail.Read`
+- IMAP 降级收信用到 `https://outlook.office.com/IMAP.AccessAsUser.All`
+- 如果授权时没有请求 `offline_access`，通常拿不到 `refresh_token`
+- 微软刷新令牌会轮换；本项目在成功刷新访问令牌后，会自动把新的 `refresh_token` 更新回本地数据库
+- `refresh_token` 属于高敏感凭据，泄露后等同于授予他人持续访问你邮箱数据的能力
 
 ## 致谢
 
