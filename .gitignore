@@ -1,9 +1,9 @@
 .omc/
 node_modules/
 dist/
-server/data/*.db
-server/data/*.db-shm
-server/data/*.db-wal
+# Local account/mail data and database backups
+server/data/**
+!server/data/.gitkeep
 *.log
 .env
 .env.local
