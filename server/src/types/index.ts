@@ -74,6 +74,12 @@ export interface ImportResult {
   errors: string[];
 }
 
+export interface ImportPreviewResult {
+  newItems: { line: number; email: string; [key: string]: unknown }[];
+  duplicates: { line: number; email: string; [key: string]: unknown }[];
+  errors: string[];
+}
+
 export interface ExportRequest {
   ids?: number[];
   separator?: string;
@@ -114,6 +120,17 @@ export interface FetchMailsResult {
   total: number;
   protocol: 'graph' | 'imap';
   cached: boolean;
+}
+
+export interface RuntimeCapabilities {
+  runtime: 'node' | 'cloudflare';
+  features: {
+    proxyAgents: boolean;
+    imap: boolean;
+    fileBackup: boolean;
+    d1: boolean;
+    sqlite: boolean;
+  };
 }
 
 // ============ 标签 ============

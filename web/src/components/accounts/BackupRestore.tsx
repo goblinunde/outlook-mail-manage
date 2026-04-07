@@ -1,9 +1,14 @@
 import { useState } from 'react';
 
-export default function BackupRestore() {
+interface Props {
+  disabled?: boolean;
+}
+
+export default function BackupRestore({ disabled = false }: Props) {
   const [restoring, setRestoring] = useState(false);
 
   const handleDownload = async () => {
+    if (disabled) return;
     try {
       const token = localStorage.getItem('auth_token');
       const headers: Record<string, string> = {};
@@ -27,6 +32,7 @@ export default function BackupRestore() {
   };
 
   const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -71,7 +77,8 @@ export default function BackupRestore() {
     <div className="flex items-center gap-2">
       <button
         onClick={handleDownload}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+        disabled={disabled}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -79,7 +86,7 @@ export default function BackupRestore() {
         备份
       </button>
 
-      <label className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+      <label className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer'}`}>
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
         </svg>
@@ -88,7 +95,7 @@ export default function BackupRestore() {
           type="file"
           accept=".db"
           onChange={handleRestore}
-          disabled={restoring}
+          disabled={restoring || disabled}
           className="hidden"
         />
       </label>

@@ -1,4 +1,4 @@
-import type { ApiResponse, PaginatedResponse, Account, MailMessage, Proxy, ImportRequest, ImportResult, ExportRequest, DashboardStats, ProxyTestResult, FetchMailsResult, Tag, ImportPreviewResult } from '../types';
+import type { ApiResponse, PaginatedResponse, Account, MailMessage, Proxy, ImportRequest, ImportResult, ExportRequest, DashboardStats, ProxyTestResult, FetchMailsResult, Tag, ImportPreviewResult, RuntimeCapabilities } from '../types';
 
 const API_BASE = '/api';
 
@@ -82,6 +82,10 @@ export const authApi = {
   check: () => request<{ required: boolean }>('/auth/check'),
   login: (password: string) =>
     request<{ token: string; required: boolean }>('/auth/login', { method: 'POST', body: JSON.stringify({ password }) }),
+};
+
+export const runtimeApi = {
+  capabilities: () => request<RuntimeCapabilities>('/runtime/capabilities'),
 };
 
 export const tagApi = {
