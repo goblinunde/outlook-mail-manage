@@ -30,9 +30,12 @@ export interface MailMessage {
 }
 
 // ============ 代理 ============
+export type ProxyProvider = 'custom' | 'cloudflare-warp';
+
 export interface Proxy {
   id: number;
   name: string;
+  provider: ProxyProvider;
   type: 'socks5' | 'http';
   host: string;
   port: number;
@@ -99,7 +102,11 @@ export interface DashboardStats {
 export interface ProxyTestResult {
   ip: string;
   latency: number;
+  provider: ProxyProvider;
+  endpoint: string;
   status: 'active' | 'failed';
+  warpEnabled?: boolean;
+  colo?: string;
 }
 
 export interface FetchMailsResult {

@@ -19,6 +19,7 @@ export function runMigrations() {
     CREATE TABLE IF NOT EXISTS proxies (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL DEFAULT '',
+      provider TEXT NOT NULL DEFAULT 'custom' CHECK(provider IN ('custom','cloudflare-warp')),
       type TEXT NOT NULL CHECK(type IN ('socks5','http')),
       host TEXT NOT NULL,
       port INTEGER NOT NULL,
@@ -61,6 +62,13 @@ export function runMigrations() {
   // 新增 remark 备注字段
   try {
     db.exec(`ALTER TABLE accounts ADD COLUMN remark TEXT DEFAULT ''`);
+  } catch {
+    // 字段已存在则忽略
+  }
+
+  // 新增 provider 字段，用于区分普通代理与 Cloudflare WARP 预设
+  try {
+    db.exec(`ALTER TABLE proxies ADD COLUMN provider TEXT NOT NULL DEFAULT 'custom' CHECK(provider IN ('custom','cloudflare-warp'))`);
   } catch {
     // 字段已存在则忽略
   }

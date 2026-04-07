@@ -3,7 +3,7 @@ import { Proxy } from '../types';
 
 export class ProxyModel {
   list(): Proxy[] {
-    return db.prepare('SELECT * FROM proxies ORDER BY id DESC').all() as Proxy[];
+    return db.prepare('SELECT * FROM proxies ORDER BY is_default DESC, id DESC').all() as Proxy[];
   }
 
   getById(id: number): Proxy | undefined {
@@ -15,24 +15,45 @@ export class ProxyModel {
   }
 
   create(data: Partial<Proxy>): Proxy {
-    const stmt = db.prepare('INSERT INTO proxies (name, type, host, port, username, password, is_default) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    const result = stmt.run(data.name || '', data.type, data.host, data.port, data.username || '', data.password || '', data.is_default ? 1 : 0);
-    return this.getById(result.lastInsertRowid as number)!;
+    const stmt = db.prepare('INSERT INTO proxies (name, provider, type, host, port, username, password, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const createProxy = db.transaction((payload: Partial<Proxy>) => {
+      if (payload.is_default) {
+        db.prepare('UPDATE proxies SET is_default = 0').run();
+      }
+      const result = stmt.run(
+        payload.name || '',
+        payload.provider || 'custom',
+        payload.type,
+        payload.host,
+        payload.port,
+        payload.username || '',
+        payload.password || '',
+        payload.is_default ? 1 : 0
+      );
+      return this.getById(result.lastInsertRowid as number)!;
+    });
+    return createProxy(data);
   }
 
   update(id: number, data: Partial<Proxy>): Proxy | undefined {
     const fields: string[] = [];
     const values: any[] = [];
     for (const [key, val] of Object.entries(data)) {
-      if (['name', 'type', 'host', 'port', 'username', 'password', 'is_default'].includes(key)) {
+      if (['name', 'provider', 'type', 'host', 'port', 'username', 'password', 'is_default'].includes(key)) {
         fields.push(`${key} = ?`);
         values.push(key === 'is_default' ? (val ? 1 : 0) : val);
       }
     }
     if (fields.length === 0) return this.getById(id);
-    values.push(id);
-    db.prepare(`UPDATE proxies SET ${fields.join(', ')} WHERE id = ?`).run(...values);
-    return this.getById(id);
+    const updateProxy = db.transaction((payload: any[]) => {
+      if (data.is_default) {
+        db.prepare('UPDATE proxies SET is_default = 0 WHERE id != ?').run(id);
+      }
+      payload.push(id);
+      db.prepare(`UPDATE proxies SET ${fields.join(', ')} WHERE id = ?`).run(...payload);
+      return this.getById(id);
+    });
+    return updateProxy(values);
   }
 
   delete(id: number): boolean {

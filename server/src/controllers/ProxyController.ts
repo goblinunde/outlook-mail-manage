@@ -1,6 +1,7 @@
 import { Context } from 'koa';
 import { ProxyModel } from '../models/Proxy';
 import { ProxyService } from '../services/ProxyService';
+import { normalizeProxyDraft, validateProxyDraft } from '../services/proxySupport';
 import { success, fail } from '../utils/response';
 
 const model = new ProxyModel();
@@ -12,15 +13,21 @@ export class ProxyController {
   }
 
   async create(ctx: Context) {
-    const body = ctx.request.body as any;
-    if (!body.type || !body.host || !body.port) return fail(ctx, 'type, host, port are required', 400);
+    const body = normalizeProxyDraft(ctx.request.body as any);
+    const validationError = validateProxyDraft(body);
+    if (validationError) return fail(ctx, validationError, 400);
     const proxy = model.create(body);
     success(ctx, proxy);
   }
 
   async update(ctx: Context) {
     const id = parseInt(ctx.params.id);
-    const proxy = model.update(id, ctx.request.body as any);
+    const current = model.getById(id);
+    if (!current) return fail(ctx, 'Proxy not found', 404);
+    const body = normalizeProxyDraft({ ...current, ...(ctx.request.body as any) });
+    const validationError = validateProxyDraft(body);
+    if (validationError) return fail(ctx, validationError, 400);
+    const proxy = model.update(id, body);
     if (!proxy) return fail(ctx, 'Proxy not found', 404);
     success(ctx, proxy);
   }

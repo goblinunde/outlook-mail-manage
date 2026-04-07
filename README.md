@@ -1,6 +1,6 @@
 # Outlook 邮箱管理器
 
-一个用于批量管理 Microsoft Outlook 邮箱账户的全栈 Web 应用。支持 OAuth2 双协议（Graph API + IMAP）收取邮件，内置代理管理，提供现代化的 Glassmorphism 风格界面。
+一个用于批量管理 Microsoft Outlook 邮箱账户的全栈 Web 应用。支持 OAuth2 双协议（Graph API + IMAP）收取邮件，内置代理管理，并已支持 Cloudflare WARP 本地代理预设与连通性检测。
 
 ## 界面预览
 
@@ -20,7 +20,7 @@
 | 前端 | React 19 + Tailwind CSS 3 + Zustand 5 + Framer Motion 11 |
 | UI 组件 | Radix UI 原语 + 自定义 Glassmorphism 组件 |
 | 邮件协议 | Microsoft Graph API / IMAP (XOAUTH2) |
-| 代理 | SOCKS5 (socks-proxy-agent) / HTTP (undici ProxyAgent) |
+| 代理 | SOCKS5 (socks-proxy-agent) / HTTP (undici ProxyAgent) / Cloudflare WARP 本地代理预设 |
 
 ## 功能概览
 
@@ -28,7 +28,7 @@
 - **账户管理** — 批量导入/导出、搜索、分页、多选操作、列排序与显隐
 - **标签系统** — 创建/编辑/删除标签，为账户分配标签，右键快速切换
 - **邮件查看** — 三栏布局（账户列表 → 邮件列表 → 邮件正文），支持收件箱/垃圾邮件切换
-- **代理设置** — SOCKS5/HTTP 代理管理、连通性测试、默认代理设置
+- **代理设置** — SOCKS5/HTTP 代理管理、Cloudflare WARP 预设、连通性测试、默认代理设置
 - **双协议收信** — Graph API 优先，IMAP 自动降级，本地缓存兜底
 - **访问密码** — 可选的访问密码保护，SHA256 Token 认证
 - **数据备份** — 一键备份/恢复 SQLite 数据库
@@ -84,12 +84,99 @@ npm run install:all
 cp .env.example .env
 ```
 
+服务端启动时会按以下顺序读取环境变量：
+
+1. 仓库根目录 `.env`
+2. `server/.env`
+
+后加载的值会覆盖先加载的值。默认开发方式建议只维护根目录 `.env`。
+
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PORT` | `3000` | 服务端口 |
 | `LOG_LEVEL` | `info` | 日志级别 |
 | `DB_PATH` | `./data/outlook.db` | SQLite 数据库路径（相对于 server/） |
 | `ACCESS_PASSWORD` | _(空)_ | 访问密码，留空则不启用认证 |
+
+### 参数设置速查
+
+#### 账户导入必填参数
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `email` | 是 | Outlook / Hotmail / Live 邮箱地址 |
+| `client_id` | 是 | Microsoft Entra 应用的 `Application (client) ID` |
+| `refresh_token` | 是 | OAuth 授权后获取的刷新令牌 |
+| `password` | 否 | 本地备注字段，不参与 OAuth 收信 |
+| `remark` | 否 | 备注信息 |
+
+#### 代理参数
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `name` | 是 | 代理显示名称 |
+| `provider` | 是 | `custom` 或 `cloudflare-warp` |
+| `type` | 是 | `socks5` 或 `http` |
+| `host` | 是 | 代理主机名或 IP |
+| `port` | 是 | TCP 端口，范围 `1-65535` |
+| `username` | 否 | 认证用户名 |
+| `password` | 否 | 认证密码 |
+| `is_default` | 否 | 是否设为默认代理 |
+
+### Cloudflare WARP 参数设置
+
+当前仓库对 Cloudflare 的实际支持是：把本机 WARP 客户端暴露的本地代理作为邮件请求出口使用。
+
+WARP 预设默认参数如下：
+
+| 参数 | 默认值 |
+|------|--------|
+| `provider` | `cloudflare-warp` |
+| `name` | `Cloudflare WARP` |
+| `type` | `socks5` |
+| `host` | `127.0.0.1` |
+| `port` | `40000` |
+
+使用步骤：
+
+1. 先在本机启动 Cloudflare WARP，并开启本地代理模式。
+2. 进入应用的“代理设置”页面。
+3. 新增代理时选择 `Cloudflare WARP` 预设。
+4. 如你的本地监听地址不是默认值，可手动覆盖 `host`、`port`、`type`。
+5. 保存后点击“测试”，系统会请求 `https://www.cloudflare.com/cdn-cgi/trace` 并显示：
+   - 当前出口 IP
+   - `warp=on/off` 状态
+   - Cloudflare 边缘节点 `colo`
+   - 请求延迟
+
+说明：
+
+- 当前后端不会自动安装、启动或管理 `warp-cli`。
+- 本项目只消费“本机已存在的 WARP 本地代理”，不直接接 Cloudflare Zero Trust API。
+- 若你把 WARP 本地代理改成了 HTTP 模式，也可以把 `type` 改为 `http`。
+
+### Cloudflare 存储绑定与变量设置
+
+当前代码库没有接入 Cloudflare Workers / Pages / R2 / D1 / KV，也没有以下文件或绑定声明：
+
+- `wrangler.toml`
+- Workers `bindings`
+- R2 bucket 绑定
+- D1 数据库绑定
+- KV namespace 绑定
+- Durable Objects 绑定
+
+这意味着当前版本不需要额外配置任何 Cloudflare 存储绑定变量；数据仍然保存在本地 SQLite：
+
+- 默认数据库文件：`server/data/outlook.db`
+- 通过 `DB_PATH` 修改数据库路径
+
+如果你后续准备把这个项目真正部署到 Cloudflare 平台，需要先做架构改造，而不是只改 README：
+
+1. 把 `better-sqlite3` 和本地文件系统依赖替换成 Cloudflare 兼容存储。
+2. 新增 `wrangler.toml` 并声明对应 bindings。
+3. 把当前 `.env` 变量拆分为 Cloudflare `vars` 与 `secrets`。
+4. 调整静态资源托管方式，以及服务端运行时到 Workers/Pages Functions。
 
 ### 开发模式
 
@@ -120,13 +207,15 @@ npm start
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/` | 获取账户列表（支持分页、搜索） |
-| GET | `/:id` | 获取单个账户 |
 | POST | `/` | 创建账户 |
 | PUT | `/:id` | 更新账户 |
 | DELETE | `/:id` | 删除账户 |
 | POST | `/batch-delete` | 批量删除 |
 | POST | `/import` | 批量导入 |
-| GET | `/export/all` | 导出全部 |
+| POST | `/import-preview` | 导入预览，返回新数据/重复数据/错误项 |
+| POST | `/import-confirm` | 确认导入，支持 `skip` 或 `overwrite` |
+| POST | `/export` | 导出账户 |
+| POST | `/:id/tags` | 设置账户标签 |
 
 ### 邮件 `/api/mails`
 
@@ -134,8 +223,8 @@ npm start
 |------|------|------|
 | POST | `/fetch` | 拉取邮件（Graph API → IMAP 降级） |
 | POST | `/fetch-new` | 仅拉取新邮件 |
-| GET | `/cached/:accountId` | 获取缓存邮件 |
-| DELETE | `/clear/:accountId` | 清除缓存 |
+| GET | `/cached` | 获取缓存邮件，参数：`account_id`、`mailbox`、`page`、`pageSize` |
+| DELETE | `/clear` | 清除缓存，Body 参数：`account_id`、`mailbox`、`proxy_id` |
 
 ### 代理 `/api/proxies`
 
@@ -146,13 +235,65 @@ npm start
 | PUT | `/:id` | 更新代理 |
 | DELETE | `/:id` | 删除代理 |
 | POST | `/:id/test` | 测试连通性 |
-| PUT | `/:id/set-default` | 设为默认 |
+| PUT | `/:id/default` | 设为默认 |
+
+代理接口中与 Cloudflare 相关的关键字段：
+
+```json
+{
+  "name": "Cloudflare WARP",
+  "provider": "cloudflare-warp",
+  "type": "socks5",
+  "host": "127.0.0.1",
+  "port": 40000,
+  "username": "",
+  "password": "",
+  "is_default": true
+}
+```
+
+测试结果示例：
+
+```json
+{
+  "ip": "198.51.100.8",
+  "latency": 182,
+  "provider": "cloudflare-warp",
+  "endpoint": "https://www.cloudflare.com/cdn-cgi/trace",
+  "status": "active",
+  "warpEnabled": true,
+  "colo": "SJC"
+}
+```
 
 ### 仪表盘 `/api/dashboard`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/stats` | 获取统计数据 |
+
+### 认证 `/api/auth`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/check` | 检查是否启用访问密码 |
+| POST | `/login` | 使用访问密码登录 |
+
+### 标签 `/api/tags`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/` | 获取标签列表 |
+| POST | `/` | 创建标签 |
+| PUT | `/:id` | 更新标签 |
+| DELETE | `/:id` | 删除标签 |
+
+### 备份 `/api/backup`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/download` | 下载 SQLite 备份 |
+| POST | `/restore` | 恢复备份 |
 
 ## 账户导入格式
 

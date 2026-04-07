@@ -8,7 +8,16 @@ interface Props {
   onSave: (data: Partial<Proxy>) => Promise<void>;
 }
 
-const initialForm = { name: '', type: 'socks5' as 'socks5' | 'http', host: '', port: 1080, username: '', password: '', is_default: false };
+const initialForm = {
+  name: '',
+  provider: 'custom' as Proxy['provider'],
+  type: 'socks5' as Proxy['type'],
+  host: '',
+  port: 1080,
+  username: '',
+  password: '',
+  is_default: false,
+};
 
 export default function ProxyForm({ open, proxy, onClose, onSave }: Props) {
   const [form, setForm] = useState(initialForm);
@@ -18,6 +27,7 @@ export default function ProxyForm({ open, proxy, onClose, onSave }: Props) {
     if (proxy) {
       setForm({
         name: proxy.name,
+        provider: proxy.provider || 'custom',
         type: proxy.type,
         host: proxy.host,
         port: proxy.port,
@@ -44,6 +54,25 @@ export default function ProxyForm({ open, proxy, onClose, onSave }: Props) {
 
   const inputCls = 'w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
   const labelCls = 'block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1';
+  const applyProviderPreset = (provider: Proxy['provider']) => {
+    setForm(f => {
+      if (provider === 'cloudflare-warp') {
+        return {
+          ...f,
+          provider,
+          name: f.name || 'Cloudflare WARP',
+          type: f.type === 'http' ? 'http' : 'socks5',
+          host: '127.0.0.1',
+          port: 40000,
+        };
+      }
+
+      return {
+        ...f,
+        provider,
+      };
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
@@ -52,6 +81,35 @@ export default function ProxyForm({ open, proxy, onClose, onSave }: Props) {
           {proxy ? '编辑代理' : '添加代理'}
         </h2>
         <div className="space-y-3">
+          <div>
+            <label className={labelCls}>预设</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => applyProviderPreset('custom')}
+                className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                  form.provider === 'custom'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950/40 dark:text-blue-200'
+                    : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                }`}
+              >
+                <div className="text-sm font-semibold">自定义代理</div>
+                <div className="mt-1 text-xs opacity-80">手动填写任意 HTTP / SOCKS5 代理</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => applyProviderPreset('cloudflare-warp')}
+                className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                  form.provider === 'cloudflare-warp'
+                    ? 'border-orange-500 bg-orange-50 text-orange-700 dark:border-orange-400 dark:bg-orange-950/40 dark:text-orange-200'
+                    : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                }`}
+              >
+                <div className="text-sm font-semibold">Cloudflare WARP</div>
+                <div className="mt-1 text-xs opacity-80">自动填入本地代理默认地址，支持专用连通性检测</div>
+              </button>
+            </div>
+          </div>
           <div>
             <label className={labelCls}>名称</label>
             <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="我的代理" />
@@ -83,6 +141,11 @@ export default function ProxyForm({ open, proxy, onClose, onSave }: Props) {
               <input type="number" value={form.port} onChange={e => setForm(f => ({ ...f, port: Number(e.target.value) }))} className={inputCls} placeholder="1080" />
             </div>
           </div>
+          {form.provider === 'cloudflare-warp' && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              WARP 本地代理通常使用 <span className="font-mono">127.0.0.1:40000</span>。如果你在本机改过监听配置，可以继续手动覆盖。
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>用户名 <span className="text-zinc-400 font-normal">(可选)</span></label>

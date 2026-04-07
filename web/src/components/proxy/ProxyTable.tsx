@@ -55,6 +55,7 @@ export default function ProxyTable({ proxies, loading, onEdit, onDelete, onTest,
         <thead>
           <tr className="border-b border-zinc-200 dark:border-zinc-700 text-left text-zinc-500 dark:text-zinc-400">
             <th className="pb-3 font-medium">名称</th>
+            <th className="pb-3 font-medium">来源</th>
             <th className="pb-3 font-medium">类型</th>
             <th className="pb-3 font-medium">地址</th>
             <th className="pb-3 font-medium">状态</th>
@@ -69,6 +70,15 @@ export default function ProxyTable({ proxies, loading, onEdit, onDelete, onTest,
                 <span className="inline-flex items-center gap-1.5">
                   {p.name}
                   {p.is_default && <span className="text-amber-500" title="默认代理">⭐</span>}
+                </span>
+              </td>
+              <td className="py-3">
+                <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                  p.provider === 'cloudflare-warp'
+                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                    : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                }`}>
+                  {p.provider === 'cloudflare-warp' ? 'Cloudflare WARP' : '自定义'}
                 </span>
               </td>
               <td className="py-3">

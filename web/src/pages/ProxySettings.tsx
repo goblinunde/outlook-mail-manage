@@ -52,7 +52,11 @@ export default function ProxySettings() {
   const handleTest = async (id: number) => {
     const result = await testProxy(id);
     if (result.status === 'active') {
-      toast.success(`测试成功 · IP: ${result.ip} · 延迟: ${result.latency}ms`);
+      if (result.provider === 'cloudflare-warp') {
+        toast.success(`WARP 测试成功 · ${result.warpEnabled ? 'WARP 已启用' : 'WARP 未启用'} · IP: ${result.ip || '-'} · 延迟: ${result.latency}ms`);
+      } else {
+        toast.success(`测试成功 · IP: ${result.ip} · 延迟: ${result.latency}ms`);
+      }
     } else {
       toast.error('代理连接失败');
     }

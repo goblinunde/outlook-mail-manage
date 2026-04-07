@@ -17,7 +17,7 @@ export default function ProxyTestButton({ proxyId, onTest }: Props) {
       const res = await onTest(proxyId);
       setResult(res);
     } catch {
-      setResult({ ip: '', latency: 0, status: 'failed' });
+      setResult({ ip: '', latency: 0, provider: 'custom', endpoint: '', status: 'failed' });
     } finally {
       setTesting(false);
     }
@@ -42,7 +42,14 @@ export default function ProxyTestButton({ proxyId, onTest }: Props) {
       </button>
       {result && !testing && (
         <span className={`text-xs ${result.status === 'active' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-          {result.status === 'active' ? `${result.ip} · ${result.latency}ms` : '连接失败'}
+          {result.status === 'active'
+            ? [
+                result.provider === 'cloudflare-warp' ? (result.warpEnabled ? 'WARP 已启用' : 'WARP 未启用') : result.ip,
+                result.provider === 'cloudflare-warp' && result.ip ? result.ip : '',
+                result.colo || '',
+                `${result.latency}ms`,
+              ].filter(Boolean).join(' · ')
+            : '连接失败'}
         </span>
       )}
     </div>
