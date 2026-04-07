@@ -4,6 +4,7 @@ import ProxyTestButton from './ProxyTestButton';
 interface Props {
   proxies: Proxy[];
   loading: boolean;
+  proxyActionsEnabled?: boolean;
   onEdit: (proxy: Proxy) => void;
   onDelete: (id: number) => void;
   onTest: (id: number) => Promise<ProxyTestResult>;
@@ -25,7 +26,7 @@ function StatusDot({ status }: { status: Proxy['status'] }) {
   );
 }
 
-export default function ProxyTable({ proxies, loading, onEdit, onDelete, onTest, onSetDefault }: Props) {
+export default function ProxyTable({ proxies, loading, proxyActionsEnabled = true, onEdit, onDelete, onTest, onSetDefault }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-zinc-400">
@@ -83,11 +84,15 @@ export default function ProxyTable({ proxies, loading, onEdit, onDelete, onTest,
               </td>
               <td className="py-3">
                 <div className="flex items-center justify-end gap-1">
-                  <button onClick={() => onEdit(p)} className="px-2.5 py-1 text-xs rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                  <button
+                    onClick={() => onEdit(p)}
+                    disabled={!proxyActionsEnabled}
+                    className="px-2.5 py-1 text-xs rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     编辑
                   </button>
-                  <ProxyTestButton proxyId={p.id} onTest={onTest} />
-                  {!p.is_default && (
+                  <ProxyTestButton proxyId={p.id} onTest={onTest} disabled={!proxyActionsEnabled} />
+                  {!p.is_default && proxyActionsEnabled && (
                     <button onClick={() => onSetDefault(p.id)} className="px-2.5 py-1 text-xs rounded-md text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
                       设为默认
                     </button>

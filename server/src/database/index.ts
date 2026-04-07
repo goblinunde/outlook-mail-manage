@@ -2,6 +2,7 @@ import Database, { Database as DatabaseType } from 'better-sqlite3';
 import { config } from '../config';
 import path from 'path';
 import fs from 'fs';
+import { NodeSqliteDatabaseAdapter } from './nodeSqlite';
 
 const dir = path.dirname(config.dbPath);
 if (!fs.existsSync(dir)) {
@@ -14,4 +15,5 @@ const db: DatabaseType = new Database(config.dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+export const nodeDatabaseAdapter = new NodeSqliteDatabaseAdapter(db);
 export default db;

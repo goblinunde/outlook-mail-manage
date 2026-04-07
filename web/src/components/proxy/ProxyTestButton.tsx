@@ -4,9 +4,10 @@ import type { ProxyTestResult } from '../../types';
 interface Props {
   proxyId: number;
   onTest: (id: number) => Promise<ProxyTestResult>;
+  disabled?: boolean;
 }
 
-export default function ProxyTestButton({ proxyId, onTest }: Props) {
+export default function ProxyTestButton({ proxyId, onTest, disabled = false }: Props) {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<ProxyTestResult | null>(null);
 
@@ -27,7 +28,7 @@ export default function ProxyTestButton({ proxyId, onTest }: Props) {
     <div className="inline-flex items-center gap-2">
       <button
         onClick={handleTest}
-        disabled={testing}
+        disabled={testing || disabled}
         className="px-2.5 py-1 text-xs rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {testing ? (
@@ -38,7 +39,7 @@ export default function ProxyTestButton({ proxyId, onTest }: Props) {
             </svg>
             测试中
           </span>
-        ) : '测试'}
+        ) : disabled ? '不可用' : '测试'}
       </button>
       {result && !testing && (
         <span className={`text-xs ${result.status === 'active' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>

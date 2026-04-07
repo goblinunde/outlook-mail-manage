@@ -1,15 +1,18 @@
 import { Context } from 'koa';
 import { AccountModel } from '../models/Account';
 import { TagModel } from '../models/Tag';
+import { nodeDatabaseAdapter } from '../database';
+import { AccountRepository } from '../repositories/AccountRepository';
 import { success, fail } from '../utils/response';
 
 const model = new AccountModel();
 const tagModel = new TagModel();
+const accountRepository = new AccountRepository(nodeDatabaseAdapter);
 
 export class AccountController {
   async list(ctx: Context) {
     const { page = '1', pageSize = '20', search = '' } = ctx.query as Record<string, string>;
-    const data = model.list(parseInt(page), parseInt(pageSize), search);
+    const data = await accountRepository.list(parseInt(page), parseInt(pageSize), search);
     success(ctx, data);
   }
 

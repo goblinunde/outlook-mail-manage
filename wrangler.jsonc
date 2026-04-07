@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "outlook-mail-manage",
+  "main": "server/src/cloudflare/worker.ts",
+  "compatibility_date": "2026-04-07",
+  "assets": {
+    "directory": "./web/dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "outlook-mail-manage",
+      "database_id": "replace-with-your-d1-database-id",
+      "migrations_dir": "server/d1/migrations"
+    }
+  ],
+  "vars": {
+    "DB_PROVIDER": "d1",
+    "D1_DATABASE_BINDING": "DB",
+    "LOG_LEVEL": "info",
+    "ACCESS_PASSWORD": ""
+  }
+}

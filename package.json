@@ -6,7 +6,12 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
     "dev:server": "cd server && npm run dev",
     "dev:web": "cd web && npm run dev",
-    "build": "cd web && npm run build",
+    "dev:cloudflare": "npm run build:web && npx wrangler dev",
+    "build": "npm run build:web",
+    "build:web": "cd web && npm run build",
+    "build:server": "cd server && npm run build",
+    "build:cloudflare": "npm run build:server && npm run build:web",
+    "deploy:cloudflare": "npm run build:cloudflare && npx wrangler deploy",
     "start": "cd server && npm start",
     "install:all": "npm install && cd server && npm install && cd ../web && npm install"
   },

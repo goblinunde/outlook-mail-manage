@@ -1,13 +1,21 @@
 .omc/
+.worktrees/
+worktrees/
 node_modules/
+server/node_modules
+web/node_modules
 dist/
 # Local account/mail data and database backups
 server/data/**
 !server/data/.gitkeep
 *.log
 .env
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 .env.local
 .env.*.local
+.wrangler/
 .DS_Store
 package-lock.json
 web/src/components/ui/

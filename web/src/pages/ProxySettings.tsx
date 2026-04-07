@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useProxyStore } from '../stores/proxy';
-import type { Proxy } from '../types';
+import { runtimeApi } from '../lib/api';
+import type { Proxy, RuntimeCapabilities } from '../types';
 import ProxyTable from '../components/proxy/ProxyTable';
 import ProxyForm from '../components/proxy/ProxyForm';
 
@@ -9,17 +10,28 @@ export default function ProxySettings() {
   const { proxies, loading, fetchProxies, createProxy, updateProxy, deleteProxy, testProxy, setDefault } = useProxyStore();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Proxy | null>(null);
+  const [capabilities, setCapabilities] = useState<RuntimeCapabilities | null>(null);
 
   useEffect(() => {
     fetchProxies().catch(() => toast.error('加载代理列表失败'));
   }, [fetchProxies]);
 
+  useEffect(() => {
+    runtimeApi.capabilities()
+      .then(setCapabilities)
+      .catch(() => undefined);
+  }, []);
+
+  const proxyActionsEnabled = capabilities?.features.proxyAgents !== false;
+
   const handleAdd = () => {
+    if (!proxyActionsEnabled) return;
     setEditing(null);
     setFormOpen(true);
   };
 
   const handleEdit = (proxy: Proxy) => {
+    if (!proxyActionsEnabled) return;
     setEditing(proxy);
     setFormOpen(true);
   };
@@ -77,7 +89,8 @@ export default function ProxySettings() {
         </div>
         <button
           onClick={handleAdd}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+          disabled={!proxyActionsEnabled}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -86,10 +99,17 @@ export default function ProxySettings() {
         </button>
       </div>
 
+      {!proxyActionsEnabled && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          当前运行时为 Cloudflare Workers。出站代理代理链不可用，代理测试与默认代理切换已禁用。
+        </div>
+      )}
+
       <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5">
         <ProxyTable
           proxies={proxies}
           loading={loading}
+          proxyActionsEnabled={proxyActionsEnabled}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onTest={handleTest}

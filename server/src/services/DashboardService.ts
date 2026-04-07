@@ -1,24 +1,42 @@
-import { AccountModel } from '../models/Account';
-import { MailCacheModel } from '../models/MailCache';
-import { ProxyModel } from '../models/Proxy';
-import { DashboardStats } from '../types';
+import type { AccountWithTags, DashboardStats, MailMessage, Proxy } from '../types';
 
-const accountModel = new AccountModel();
-const cacheModel = new MailCacheModel();
-const proxyModel = new ProxyModel();
+interface AccountReader {
+  getAll(): Promise<AccountWithTags[]>;
+}
+
+interface CacheReader {
+  getRecent(limit: number): Promise<MailMessage[]>;
+  countByAccount(accountId: number, mailbox: string): Promise<number>;
+  countAll(mailbox: string): Promise<number>;
+}
+
+interface ProxyReader {
+  list(): Promise<Proxy[]>;
+}
+
+interface DashboardServiceDependencies {
+  accountReader: AccountReader;
+  cacheReader: CacheReader;
+  proxyReader: ProxyReader;
+}
 
 export class DashboardService {
-  getStats(): DashboardStats {
-    const accounts = accountModel.getAll();
-    const proxies = proxyModel.list();
-    const recentMails = cacheModel.getRecent(5);
+  constructor(private readonly dependencies: DashboardServiceDependencies) {}
 
-    const accountStats = accounts.map(acc => ({
-      account_id: acc.id,
-      email: acc.email,
-      inbox_count: cacheModel.countByAccount(acc.id, 'INBOX'),
-      junk_count: cacheModel.countByAccount(acc.id, 'Junk'),
-    }));
+  async getStats(): Promise<DashboardStats> {
+    const accounts = await this.dependencies.accountReader.getAll();
+    const [proxies, recentMails, totalInboxMails, totalJunkMails, accountStats] = await Promise.all([
+      this.dependencies.proxyReader.list(),
+      this.dependencies.cacheReader.getRecent(5),
+      this.dependencies.cacheReader.countAll('INBOX'),
+      this.dependencies.cacheReader.countAll('Junk'),
+      Promise.all(accounts.map(async (acc) => ({
+        account_id: acc.id,
+        email: acc.email,
+        inbox_count: await this.dependencies.cacheReader.countByAccount(acc.id, 'INBOX'),
+        junk_count: await this.dependencies.cacheReader.countByAccount(acc.id, 'Junk'),
+      }))),
+    ]);
 
     const now = Date.now();
     const sixtyDaysMs = 60 * 24 * 60 * 60 * 1000;
@@ -26,8 +44,8 @@ export class DashboardService {
     return {
       totalAccounts: accounts.length,
       activeAccounts: accounts.filter(a => a.status === 'active').length,
-      totalInboxMails: cacheModel.countAll('INBOX'),
-      totalJunkMails: cacheModel.countAll('Junk'),
+      totalInboxMails,
+      totalJunkMails,
       totalProxies: proxies.length,
       activeProxies: proxies.filter(p => p.status === 'active').length,
       recentMails,

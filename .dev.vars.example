@@ -1,0 +1,5 @@
+# Cloudflare Worker local development variables
+ACCESS_PASSWORD=
+LOG_LEVEL=info
+DB_PROVIDER=d1
+D1_DATABASE_BINDING=DB

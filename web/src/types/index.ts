@@ -123,3 +123,14 @@ export interface FetchMailsResult {
   protocol: 'graph' | 'imap';
   cached: boolean;
 }
+
+export interface RuntimeCapabilities {
+  runtime: 'node' | 'cloudflare';
+  features: {
+    proxyAgents: boolean;
+    imap: boolean;
+    fileBackup: boolean;
+    d1: boolean;
+    sqlite: boolean;
+  };
+}
