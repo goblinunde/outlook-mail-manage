@@ -1,4 +1,6 @@
 .omc/
+.worktrees/
+worktrees/
 node_modules/
 dist/
 # Local account/mail data and database backups
