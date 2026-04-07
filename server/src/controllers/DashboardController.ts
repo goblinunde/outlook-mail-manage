@@ -6,7 +6,7 @@ const dashboardService = new DashboardService();
 
 export class DashboardController {
   async stats(ctx: Context) {
-    const data = dashboardService.getStats();
+    const data = await dashboardService.getStats();
     success(ctx, data);
   }
 }

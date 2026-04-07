@@ -155,28 +155,258 @@ WARP 预设默认参数如下：
 - 本项目只消费“本机已存在的 WARP 本地代理”，不直接接 Cloudflare Zero Trust API。
 - 若你把 WARP 本地代理改成了 HTTP 模式，也可以把 `type` 改为 `http`。
 
-### Cloudflare 存储绑定与变量设置
+### Cloudflare Workers / D1 部署
 
-当前代码库没有接入 Cloudflare Workers / Pages / R2 / D1 / KV，也没有以下文件或绑定声明：
+当前仓库已经支持 Cloudflare 平台部署，相关文件如下：
 
-- `wrangler.toml`
-- Workers `bindings`
-- R2 bucket 绑定
-- D1 数据库绑定
-- KV namespace 绑定
-- Durable Objects 绑定
+- `wrangler.jsonc`
+- `.dev.vars.example`
+- `server/src/cloudflare/worker.ts`
+- `server/d1/migrations/0001_initial.sql`
 
-这意味着当前版本不需要额外配置任何 Cloudflare 存储绑定变量；数据仍然保存在本地 SQLite：
+部署形态：
 
-- 默认数据库文件：`server/data/outlook.db`
-- 通过 `DB_PATH` 修改数据库路径
+- 前端静态资源由 Cloudflare Assets 托管
+- `/api/*` 由 Worker 入口处理
+- 数据库存储切换为 D1
+- Node 本地运行仍然保留 SQLite
 
-如果你后续准备把这个项目真正部署到 Cloudflare 平台，需要先做架构改造，而不是只改 README：
+Cloudflare 运行时下当前支持情况：
 
-1. 把 `better-sqlite3` 和本地文件系统依赖替换成 Cloudflare 兼容存储。
-2. 新增 `wrangler.toml` 并声明对应 bindings。
-3. 把当前 `.env` 变量拆分为 Cloudflare `vars` 与 `secrets`。
-4. 调整静态资源托管方式，以及服务端运行时到 Workers/Pages Functions。
+| 能力 | Node 本地运行 | Cloudflare Worker |
+|------|---------------|-------------------|
+| SQLite 本地文件数据库 | 支持 | 不支持 |
+| D1 数据库 | 不使用 | 支持 |
+| Graph API 收信 | 支持 | 支持 |
+| IMAP 降级 | 支持 | 不支持 |
+| 代理管理 / WARP 代理测试 | 支持 | 不支持 |
+| 文件备份 / 恢复 | 支持 | 不支持 |
+
+### Cloudflare 绑定与变量设置
+
+`wrangler.jsonc` 已声明以下绑定和变量：
+
+| 类型 | 名称 | 当前值 | 说明 |
+|------|------|--------|------|
+| Worker Entry | `main` | `server/src/cloudflare/worker.ts` | Worker 入口文件 |
+| Assets Binding | `ASSETS` | `web/dist` | 前端静态资源绑定 |
+| D1 Binding | `DB` | `outlook-mail-manage` | D1 数据库绑定名 |
+| Variable | `DB_PROVIDER` | `d1` | 强制 Worker 运行时使用 D1 |
+| Variable | `D1_DATABASE_BINDING` | `DB` | Worker 运行时读取的 D1 绑定名 |
+| Variable | `LOG_LEVEL` | `info` | 日志级别 |
+| Variable | `ACCESS_PASSWORD` | `""` | 可选访问密码，建议改成 Secret |
+
+建议：
+
+- 非敏感配置保留在 `wrangler.jsonc` 的 `vars`
+- `ACCESS_PASSWORD` 这类敏感值使用 `wrangler secret put`
+- 本地 Worker 调试用 `.dev.vars`
+
+`.dev.vars.example` 默认内容：
+
+```dotenv
+ACCESS_PASSWORD=
+LOG_LEVEL=info
+DB_PROVIDER=d1
+D1_DATABASE_BINDING=DB
+```
+
+### Cloudflare D1 初始化
+
+1. 创建 D1 数据库：
+
+```bash
+npx wrangler d1 create outlook-mail-manage
+```
+
+2. 把返回的 `database_id` 填入根目录 [`wrangler.jsonc`](/home/yyt/Documents/Github/outlook-mail-manage/wrangler.jsonc)。
+
+3. 执行 D1 migration：
+
+```bash
+npx wrangler d1 migrations apply outlook-mail-manage --local
+npx wrangler d1 migrations apply outlook-mail-manage --remote
+```
+
+当前 D1 migration 文件为 [`server/d1/migrations/0001_initial.sql`](/home/yyt/Documents/Github/outlook-mail-manage/server/d1/migrations/0001_initial.sql)。
+
+### Cloudflare 本地调试与部署命令
+
+```bash
+# 构建前端并启动 Wrangler 本地开发
+npm run dev:cloudflare
+
+# 构建 server + web 的 Cloudflare 部署产物
+npm run build:cloudflare
+
+# 部署到 Cloudflare
+npm run deploy:cloudflare
+```
+
+### 从本地 SQLite 导入 D1
+
+当前仓库已经内置了“读取本地 SQLite -> 生成 D1 导入 SQL 分片 -> 调用 Wrangler 执行导入”的完整工具链。
+
+#### 1. 先把本地 SQLite 数据导出为 D1 导入包
+
+默认会读取本地 SQLite：
+
+- [`server/data/outlook.db`](/home/yyt/Documents/Github/outlook-mail-manage/server/data/outlook.db)
+
+执行：
+
+```bash
+npm run cloudflare:d1:prepare-import
+```
+
+默认输出目录：
+
+- `.wrangler/d1-import/<timestamp>/`
+
+每次生成内容包括：
+
+- `001.sql`, `002.sql`, `003.sql` ...：分片 SQL 文件
+- `manifest.json`：记录源 SQLite 路径、分片数、各表行数
+
+如果你要指定 SQLite 路径、输出目录或分片大小：
+
+```bash
+npm run cloudflare:d1:prepare-import -- \
+  --db server/data/outlook.db \
+  --out .wrangler/d1-import-prod \
+  --max-statements 200
+```
+
+参数说明：
+
+| 参数 | 说明 |
+|------|------|
+| `--db` | 指定本地 SQLite 文件路径 |
+| `--out` | 指定导出目录 |
+| `--max-statements` | 每个 SQL 分片包含的语句数量 |
+
+#### 2. 预览将要执行的 D1 导入命令
+
+在真正执行前，可以先 dry-run：
+
+```bash
+npm run cloudflare:d1:import:local -- --dry-run
+npm run cloudflare:d1:import:remote -- --dry-run
+```
+
+如果你想指定某个导入包目录：
+
+```bash
+npm run cloudflare:d1:import:local -- --dry-run --input .wrangler/d1-import/2026-04-07T16-58-11-784Z
+```
+
+#### 3. 导入到本地 D1
+
+```bash
+npm run cloudflare:d1:import:local
+```
+
+这个命令会：
+
+1. 读取最近一次生成的 `.wrangler/d1-import/<timestamp>/manifest.json`
+2. 按顺序执行对应 SQL 分片
+3. 调用 `npx wrangler d1 execute <database_name> --local --file <chunk.sql>`
+
+#### 4. 导入到远程 D1
+
+```bash
+npm run cloudflare:d1:import:remote
+```
+
+如果你想一步完成“生成导入包 + 执行导入”：
+
+```bash
+npm run cloudflare:d1:migrate:local
+npm run cloudflare:d1:migrate:remote
+```
+
+说明：
+
+- 远程导入前，先确认 [`wrangler.jsonc`](/home/yyt/Documents/Github/outlook-mail-manage/wrangler.jsonc) 里的 `database_name` 和 `database_id` 已正确配置
+- 远程导入会覆盖 D1 中现有的 `accounts`、`proxies`、`tags`、`account_tags`、`mail_cache` 数据
+
+#### 5. 指定数据库名或导入目录
+
+如果你不想用 `wrangler.jsonc` 里的默认数据库名，可以显式指定：
+
+```bash
+npm run cloudflare:d1:import:remote -- \
+  --database your-d1-name \
+  --input .wrangler/d1-import/2026-04-07T16-58-11-784Z
+```
+
+### D1 导出备份
+
+也已经内置了 D1 导出脚本，底层调用的是 Cloudflare 官方 `wrangler d1 export`。
+
+导出本地 D1：
+
+```bash
+npm run cloudflare:d1:export:local
+```
+
+导出远程 D1：
+
+```bash
+npm run cloudflare:d1:export:remote
+```
+
+默认输出目录：
+
+- `.wrangler/d1-export/`
+
+示例：
+
+```bash
+npm run cloudflare:d1:export:remote -- \
+  --output .wrangler/d1-export/prod-backup.sql
+```
+
+如需先预览命令：
+
+```bash
+npm run cloudflare:d1:export:remote -- --dry-run
+```
+
+如果你要给 Worker 配访问密码：
+
+```bash
+npx wrangler secret put ACCESS_PASSWORD
+```
+
+### Node 与 Cloudflare 两套参数
+
+Node 本地运行主要读取根目录 `.env`：
+
+```dotenv
+PORT=3000
+LOG_LEVEL=info
+DB_PATH=./data/outlook.db
+DB_PROVIDER=sqlite
+D1_DATABASE_BINDING=DB
+ACCESS_PASSWORD=
+```
+
+Cloudflare Worker 本地调试主要读取 `.dev.vars`：
+
+```dotenv
+ACCESS_PASSWORD=
+LOG_LEVEL=info
+DB_PROVIDER=d1
+D1_DATABASE_BINDING=DB
+```
+
+说明：
+
+- `DB_PROVIDER=sqlite` 主要用于 Node 运行时
+- `DB_PROVIDER=d1` 主要用于 Worker 运行时
+- Worker 运行时不读取本地 SQLite 文件
+- Node 运行时不会使用 Cloudflare D1 binding
 
 ### 开发模式
 
@@ -294,6 +524,12 @@ npm start
 |------|------|------|
 | GET | `/download` | 下载 SQLite 备份 |
 | POST | `/restore` | 恢复备份 |
+
+### 运行时 `/api/runtime`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/capabilities` | 获取当前运行时能力矩阵 |
 
 ## 账户导入格式
 

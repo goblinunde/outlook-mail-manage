@@ -8,8 +8,11 @@ server/data/**
 !server/data/.gitkeep
 *.log
 .env
+.dev.vars
+.dev.vars.*
 .env.local
 .env.*.local
+.wrangler/
 .DS_Store
 package-lock.json
 web/src/components/ui/
