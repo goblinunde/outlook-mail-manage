@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAccountStore } from '../stores/accounts';
 import { useTagStore } from '../stores/tags';
-import type { Account } from '../types';
+import { runtimeApi } from '../lib/api';
+import type { Account, RuntimeCapabilities } from '../types';
 import AccountToolbar from '../components/accounts/AccountToolbar';
 import AccountTable, { getDefaultVisibleColumns, COLUMN_STORAGE_KEY } from '../components/accounts/AccountTable';
 import EditAccountDialog from '../components/accounts/EditAccountDialog';
@@ -15,7 +16,7 @@ export default function Accounts() {
   const {
     accounts, loading, selectedIds, searchQuery, pagination,
     fetchAccounts, createAccount, updateAccount, deleteAccount, batchDelete,
-    exportAccounts, setSelectedIds, setSearchQuery, setPage, setPageSize,
+    importAccounts, exportAccounts, setSelectedIds, setSearchQuery, setPage, setPageSize,
   } = useAccountStore();
 
   const { tags, fetchTags, createTag, deleteTag, setAccountTags } = useTagStore();
@@ -28,6 +29,7 @@ export default function Accounts() {
   const [mailViewMailbox, setMailViewMailbox] = useState<'INBOX' | 'Junk'>('INBOX');
   const [mailViewOpen, setMailViewOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(getDefaultVisibleColumns);
+  const [capabilities, setCapabilities] = useState<RuntimeCapabilities | null>(null);
 
   const handleColumnsChange = (cols: string[]) => {
     setVisibleColumns(cols);
@@ -35,11 +37,20 @@ export default function Accounts() {
   };
 
   useEffect(() => { fetchAccounts(); fetchTags(); }, []);
+  useEffect(() => {
+    runtimeApi.capabilities()
+      .then(setCapabilities)
+      .catch(() => undefined);
+  }, []);
 
   const handleEdit = (account: Account) => {
     setEditAccount(account);
     setEditOpen(true);
   };
+
+  const currentEditAccount = editAccount
+    ? accounts.find((account) => account.id === editAccount.id) ?? editAccount
+    : null;
 
   const handleSave = async (data: Partial<Account>) => {
     try {
@@ -142,7 +153,18 @@ export default function Accounts() {
     }
   };
 
+  const handlePasteImport = async (req: { content: string; separator: string; format: string[] }) => {
+    try {
+      const result = await importAccounts(req);
+      toast.success(`导入完成：新增 ${result.imported}，跳过 ${result.skipped}`);
+    } catch (e: any) {
+      toast.error(e.message || '导入失败');
+      throw e;
+    }
+  };
+
   const totalPages = Math.ceil(pagination.total / pagination.pageSize);
+  const fileBackupEnabled = capabilities?.features.fileBackup !== false;
 
   return (
     <div className="space-y-4">
@@ -153,7 +175,7 @@ export default function Accounts() {
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">共 {pagination.total} 个邮箱账户</p>
         </div>
         <div className="flex items-center gap-3">
-          <BackupRestore />
+          <BackupRestore disabled={!fileBackupEnabled} />
           <button
             onClick={() => { setEditAccount(null); setEditOpen(true); }}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
@@ -163,6 +185,12 @@ export default function Accounts() {
           </button>
         </div>
       </div>
+
+      {!fileBackupEnabled && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          当前运行时为 Cloudflare Workers。文件备份与恢复不可用，请改用 D1 迁移或数据库导出方案。
+        </div>
+      )}
 
       {/* Toolbar */}
       <AccountToolbar
@@ -234,17 +262,17 @@ export default function Accounts() {
       {/* Dialogs */}
       <EditAccountDialog
         open={editOpen}
-        account={editAccount}
+        account={currentEditAccount}
         onClose={() => setEditOpen(false)}
         onSave={handleSave}
         tags={tags}
-        accountTagIds={editAccount ? (editAccount.tags || []).map(t => t.id) : []}
-        onTagToggle={editAccount ? (tagId) => handleToggleTag(editAccount.id, tagId) : undefined}
+        accountTagIds={currentEditAccount ? (currentEditAccount.tags || []).map(t => t.id) : []}
+        onTagToggle={currentEditAccount ? (tagId) => handleToggleTag(currentEditAccount.id, tagId) : undefined}
         onCreateTag={handleCreateTag}
         onDeleteTag={handleDeleteTag}
       />
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImport={() => fetchAccounts()} />
-      <PasteImportDialog open={pasteOpen} onClose={() => setPasteOpen(false)} onImport={() => fetchAccounts()} />
+      <PasteImportDialog open={pasteOpen} onClose={() => setPasteOpen(false)} onImport={handlePasteImport} />
       {mailViewAccount && (
         <MailViewerDialog
           open={mailViewOpen}

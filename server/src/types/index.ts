@@ -71,6 +71,12 @@ export interface ImportResult {
   errors: string[];
 }
 
+export interface ImportPreviewResult {
+  newItems: { line: number; email: string; [key: string]: unknown }[];
+  duplicates: { line: number; email: string; [key: string]: unknown }[];
+  errors: string[];
+}
+
 export interface ExportRequest {
   ids?: number[];
   separator?: string;

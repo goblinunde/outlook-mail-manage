@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useProxyStore } from '../stores/proxy';
 import { runtimeApi } from '../lib/api';
 import type { Proxy, RuntimeCapabilities } from '../types';
+import { proxyManagementUnsupportedMessage } from '../lib/runtimeMessages';
 import ProxyTable from '../components/proxy/ProxyTable';
 import ProxyForm from '../components/proxy/ProxyForm';
 
@@ -25,18 +26,28 @@ export default function ProxySettings() {
   const proxyActionsEnabled = capabilities?.features.proxyAgents !== false;
 
   const handleAdd = () => {
-    if (!proxyActionsEnabled) return;
+    if (!proxyActionsEnabled) {
+      toast.error(proxyManagementUnsupportedMessage);
+      return;
+    }
     setEditing(null);
     setFormOpen(true);
   };
 
   const handleEdit = (proxy: Proxy) => {
-    if (!proxyActionsEnabled) return;
+    if (!proxyActionsEnabled) {
+      toast.error(proxyManagementUnsupportedMessage);
+      return;
+    }
     setEditing(proxy);
     setFormOpen(true);
   };
 
   const handleSave = async (data: Partial<Proxy>) => {
+    if (!proxyActionsEnabled) {
+      toast.error(proxyManagementUnsupportedMessage);
+      throw new Error(proxyManagementUnsupportedMessage);
+    }
     try {
       if (editing) {
         await updateProxy(editing.id, data);
@@ -52,6 +63,10 @@ export default function ProxySettings() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!proxyActionsEnabled) {
+      toast.error(proxyManagementUnsupportedMessage);
+      return;
+    }
     if (!confirm('确定要删除该代理吗？')) return;
     try {
       await deleteProxy(id);
@@ -62,6 +77,10 @@ export default function ProxySettings() {
   };
 
   const handleTest = async (id: number) => {
+    if (!proxyActionsEnabled) {
+      toast.error(proxyManagementUnsupportedMessage);
+      throw new Error(proxyManagementUnsupportedMessage);
+    }
     const result = await testProxy(id);
     if (result.status === 'active') {
       toast.success(`测试成功 · IP: ${result.ip} · 延迟: ${result.latency}ms`);
@@ -72,6 +91,10 @@ export default function ProxySettings() {
   };
 
   const handleSetDefault = async (id: number) => {
+    if (!proxyActionsEnabled) {
+      toast.error(proxyManagementUnsupportedMessage);
+      return;
+    }
     try {
       await setDefault(id);
       toast.success('已设为默认代理');
@@ -101,7 +124,7 @@ export default function ProxySettings() {
 
       {!proxyActionsEnabled && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
-          当前运行时为 Cloudflare Workers。出站代理代理链不可用，代理测试与默认代理切换已禁用。
+          {proxyManagementUnsupportedMessage}
         </div>
       )}
 
@@ -110,6 +133,7 @@ export default function ProxySettings() {
           proxies={proxies}
           loading={loading}
           proxyActionsEnabled={proxyActionsEnabled}
+          disabledMessage={proxyManagementUnsupportedMessage}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onTest={handleTest}
@@ -122,6 +146,8 @@ export default function ProxySettings() {
         proxy={editing}
         onClose={() => setFormOpen(false)}
         onSave={handleSave}
+        disabled={!proxyActionsEnabled}
+        disabledMessage={proxyManagementUnsupportedMessage}
       />
     </div>
   );

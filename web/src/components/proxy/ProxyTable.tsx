@@ -5,6 +5,7 @@ interface Props {
   proxies: Proxy[];
   loading: boolean;
   proxyActionsEnabled?: boolean;
+  disabledMessage?: string;
   onEdit: (proxy: Proxy) => void;
   onDelete: (id: number) => void;
   onTest: (id: number) => Promise<ProxyTestResult>;
@@ -26,7 +27,7 @@ function StatusDot({ status }: { status: Proxy['status'] }) {
   );
 }
 
-export default function ProxyTable({ proxies, loading, proxyActionsEnabled = true, onEdit, onDelete, onTest, onSetDefault }: Props) {
+export default function ProxyTable({ proxies, loading, proxyActionsEnabled = true, disabledMessage, onEdit, onDelete, onTest, onSetDefault }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-zinc-400">
@@ -87,6 +88,7 @@ export default function ProxyTable({ proxies, loading, proxyActionsEnabled = tru
                   <button
                     onClick={() => onEdit(p)}
                     disabled={!proxyActionsEnabled}
+                    title={!proxyActionsEnabled ? disabledMessage : undefined}
                     className="px-2.5 py-1 text-xs rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     编辑
@@ -97,7 +99,11 @@ export default function ProxyTable({ proxies, loading, proxyActionsEnabled = tru
                       设为默认
                     </button>
                   )}
-                  <button onClick={() => onDelete(p.id)} className="px-2.5 py-1 text-xs rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  <button
+                    onClick={() => onDelete(p.id)}
+                    disabled={!proxyActionsEnabled}
+                    className="px-2.5 py-1 text-xs rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     删除
                   </button>
                 </div>
